@@ -124,7 +124,3 @@ pub enum ColumnType {
 pub type SqliteResult<T> = Result<T, ResultCode>;
 
 pub type RowMap = HashMap<String, BindArg>;
-
-pub enum dbh {}
-pub enum stmt {}
-pub enum _notused {}

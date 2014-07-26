@@ -32,6 +32,10 @@
 use libc::*;
 use types::*;
 
+pub enum dbh {}
+pub enum stmt {}
+pub enum _notused {}
+
 #[link(name = "sqlite3")]
 extern {
     pub fn sqlite3_open(path: *const c_char, hnd: *mut *mut dbh) -> ResultCode;

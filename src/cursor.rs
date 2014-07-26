@@ -39,12 +39,6 @@ use types::*;
 /// The database cursor.
 pub struct Cursor<'db> {
     stmt: *mut stmt,
-    _dbh: &'db *mut dbh
-}
-
-pub fn cursor_with_statement<'db>(stmt: *mut stmt, dbh: &'db *mut dbh) -> Cursor<'db> {
-    debug!("`Cursor.cursor_with_statement()`: stmt={:?}", stmt);
-    Cursor { stmt: stmt, _dbh: dbh }
 }
 
 #[unsafe_destructor]
@@ -60,6 +54,10 @@ impl<'db> Drop for Cursor<'db> {
 }
 
 impl<'db> Cursor<'db> {
+    pub fn new<'db>(stmt: *mut stmt, _dbh: &'db *mut dbh) -> Cursor<'db> {
+        debug!("`Cursor.new()`: stmt={:?}", stmt);
+        Cursor { stmt: stmt }
+    }
 
     /// Resets a prepared SQL statement, but does not reset its bindings.
     /// See http://www.sqlite.org/c3ref/reset.html

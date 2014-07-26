@@ -41,7 +41,6 @@ pub use cursor::*;
 pub use database::*;
 use ffi::*;
 pub use types::*;
-use std::ptr;
 
 pub mod cursor;
 pub mod database;
@@ -72,43 +71,23 @@ pub fn sqlite_complete(sql: &str) -> SqliteResult<bool> {
 }
 
 
-/// Opens a new database connection.
-/// `path` can either be a filesystem path or ":memory:".
-/// See http://www.sqlite.org/c3ref/open.html
-pub fn open(path: &str) -> SqliteResult<Database> {
-    let mut dbh = ptr::mut_null();
-    let r = path.with_c_str( |_path| {
-        unsafe {
-            sqlite3_open(_path, &mut dbh)
-        }
-    });
-    if r != SQLITE_OK {
-        unsafe {
-            sqlite3_close(dbh);
-        }
-        Err(r)
-    } else {
-        debug!("`open()`: dbh={:?}", dbh);
-        Ok(database_with_handle(dbh))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use cursor::*;
     use database::*;
     use super::*;
     use types::*;
+    use std::ptr;
 
     fn checked_prepare<'db>(database: &'db Database, sql: &str) -> Cursor<'db> {
-        match database.prepare(sql, &None) {
+        match database.prepare(sql) {
             Ok(s)  => s,
             Err(x) => fail!(format!("sqlite error: \"{}\" ({:?})", database.get_errmsg(), x)),
         }
     }
 
     fn checked_open() -> Database {
-        match open(":memory:") {
+        match Database::new(":memory:") {
             Ok(database) => database,
             Err(ref e) => fail!(e.to_string()),
         }
@@ -343,5 +322,34 @@ mod tests {
             return r.unwrap() == v;
         }
     }
+
+    // safety_tests
+    #[ignore]
+    #[test]
+    fn cursor_with_statement_null() {
+        let dbh = ptr::mut_null();
+        let stmt = ptr::mut_null();
+        let cur = Cursor::new(stmt, &dbh);
+        assert_eq!(cur.step(), SQLITE_MISUSE);
+        assert_eq!(cur.get_text(0).as_slice(), "");
+    }
+
+    #[ignore]
+    #[test]
+    fn get_text_without_step() {
+        let db = checked_open();
+        let c = checked_prepare(&db, "select 1 + 1");
+        assert_eq!(c.get_text(0).as_slice(), "");
+    }
+
+    #[ignore]
+    #[test]
+    fn get_text_on_bogus_col() {
+        let db = checked_open();
+        let c = checked_prepare(&db, "select 1 + 1");
+        c.step();
+        assert_eq!(c.get_text(1).as_slice(), "");
+    }
+
 }
 

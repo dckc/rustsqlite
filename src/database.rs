@@ -41,10 +41,6 @@ pub struct Database {
     dbh: *mut dbh,
 }
 
-pub fn database_with_handle(dbh: *mut dbh) -> Database {
-    Database { dbh: dbh }
-}
-
 impl Drop for Database {
     /// Closes the database connection.
     /// See http://www.sqlite.org/c3ref/close.html
@@ -57,6 +53,30 @@ impl Drop for Database {
 }
 
 impl Database {
+    /// Opens a new database connection.
+    /// `path` can either be a filesystem path or ":memory:".
+    /// See http://www.sqlite.org/c3ref/open.html
+    pub fn new(path: &str) -> SqliteResult<Database> {
+        let mut dbh = ptr::mut_null();
+        let r = path.with_c_str( |_path| {
+            unsafe {
+                sqlite3_open(_path, &mut dbh)
+            }
+        });
+        match r {
+            SQLITE_OK => {
+                debug!("`open()`: dbh={:?}", dbh);
+                Ok(Database { dbh: dbh })
+            }
+            _ => {
+                unsafe {
+                    sqlite3_close(dbh);
+                }
+                Err(r)
+            }
+        }
+    }
+
 
     /// Returns the error message of the the most recent call.
     /// See http://www.sqlite.org/c3ref/errcode.html
@@ -68,18 +88,28 @@ impl Database {
 
     /// Prepares/compiles an SQL statement.
     /// See http://www.sqlite.org/c3ref/prepare.html
-    pub fn prepare<'db>(&'db self, sql: &str, _tail: &Option<&str>) -> SqliteResult<Cursor<'db>> {
-        let mut new_stmt = ptr::mut_null();
-        let r = sql.with_c_str( |_sql| {
-            unsafe {
-                sqlite3_prepare_v2(self.dbh, _sql, sql.len() as c_int, &mut new_stmt, ptr::mut_null())
-            }
+    pub fn prepare<'db>(&'db self, sql: &str) -> SqliteResult<Cursor<'db>> {
+        match self.prepare_with_offset(sql) {
+            Ok((cur, _)) => Ok(cur),
+            Err(e) => Err(e)
+        }
+    }
+                
+    pub fn prepare_with_offset<'db>(&'db self, sql: &str) -> SqliteResult<(Cursor<'db>, uint)> {
+        let (r, stmt, offset) = sql.with_c_str( |_sql| {
+            let mut new_stmt = ptr::mut_null();
+            let mut tail = ptr::null();
+            let r = unsafe {
+                sqlite3_prepare_v2(self.dbh, _sql, sql.len() as c_int, &mut new_stmt, &mut tail)
+            };
+            (r, new_stmt, tail as uint - _sql as uint)
         });
-        if r == SQLITE_OK {
-            debug!("`Database.prepare()`: stmt={:?}", new_stmt);
-            Ok( cursor_with_statement(new_stmt, &self.dbh))
-        } else {
-            Err(r)
+        match r {
+            SQLITE_OK => {
+                debug!("`Database.prepare()`: stmt={:?}", stmt);
+                Ok((Cursor::new(stmt, &self.dbh), offset))
+            }
+            _ => Err(r)
         }
     }
 
