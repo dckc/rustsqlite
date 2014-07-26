@@ -44,6 +44,7 @@ pub use types::*;
 
 pub mod cursor;
 pub mod database;
+pub mod query;
 mod ffi;
 
 #[allow(non_camel_case_types)]
