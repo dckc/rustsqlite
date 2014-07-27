@@ -134,9 +134,9 @@ mod tests {
         );
 
         let sth = checked_prepare(&database, "SELECT id FROM test WHERE id = 1;");
-        assert!(sth.step() == SQLITE_ROW);
-        assert!(sth.get_int(0) == 1);
-        assert!(sth.step() == SQLITE_DONE);
+        assert_eq!(sth.step(), Ok(SQLITE_ROW));
+        assert_eq!(sth.get_int(0), 1);
+        assert_eq!(sth.step(), Ok(SQLITE_DONE));
     }
 
     #[test]
@@ -151,9 +151,10 @@ mod tests {
         );
 
         let sth = checked_prepare(&database, "SELECT v FROM test WHERE id = 1;");
-        assert!(sth.step() == SQLITE_ROW);
-        assert!(sth.get_blob(0) == vec!(0x00, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xff));
-        assert!(sth.step() == SQLITE_DONE);
+        assert_eq!(sth.step(), Ok(SQLITE_ROW));
+        assert_eq!(sth.get_blob(0),
+                   vec!(0x00, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xff));
+        assert_eq!(sth.step(), Ok(SQLITE_DONE));
     }
 
     #[test]
@@ -168,11 +169,11 @@ mod tests {
                 INSERT OR IGNORE INTO test (id) VALUES(4);"
         );
         let sth = checked_prepare(&database, "SELECT id FROM test WHERE id > ? AND id < ?");
-        assert!(sth.bind_param(1, &Integer(2)) == SQLITE_OK);
-        assert!(sth.bind_param(2, &Integer(4)) == SQLITE_OK);
+        assert_eq!(sth.bind_param(1, &Integer(2)), Ok(()));
+        assert_eq!(sth.bind_param(2, &Integer(4)), Ok(()));
 
-        assert!(sth.step() == SQLITE_ROW);
-        assert!(sth.get_f64(0) as int == 3);
+        assert_eq!(sth.step(), Ok(SQLITE_ROW));
+        assert_eq!(sth.get_f64(0) as int, 3);
     }
 
     #[test]
@@ -186,10 +187,10 @@ mod tests {
              INSERT OR IGNORE INTO test (id) VALUES(1234567890123456);"
         );
         let sth = checked_prepare(&database, "SELECT id FROM test WHERE id > ?");
-        assert!(sth.bind_param(1, &Integer64(1234567890120000)) == SQLITE_OK);
+        assert_eq!(sth.bind_param(1, &Integer64(1234567890120000)), Ok(()));
 
-        assert!(sth.step() == SQLITE_ROW);
-        assert!(sth.get_i64(0) == 1234567890123456);
+        assert_eq!(sth.step(), Ok(SQLITE_ROW));
+        assert_eq!(sth.get_i64(0), 1234567890123456);
     }
 
     #[test]
@@ -200,7 +201,7 @@ mod tests {
 
         let sth = checked_prepare(&database, "INSERT INTO test (name) VALUES (?)");
 
-        assert!(sth.bind_param(1, &Text("test".to_string())) == SQLITE_OK);
+        assert_eq!(sth.bind_param(1, &Text("test".to_string())), Ok(()));
     }
 
     #[test]
@@ -210,7 +211,8 @@ mod tests {
         checked_exec(&database, "BEGIN; CREATE TABLE IF NOT EXISTS test (name text, id integer); COMMIT;");
 
         let sth = checked_prepare(&database, "INSERT INTO TEST (name, id) values (?, ?)");
-        assert!(sth.bind_params(&[Integer(12345), Text("test".to_string())]) == SQLITE_OK);
+        assert_eq!(sth.bind_params(&[Integer(12345), Text("test".to_string())]),
+                   Ok(()));
     }
 
     #[test]
@@ -221,7 +223,7 @@ mod tests {
 
         let sth = checked_prepare(&database, "INSERT INTO test (name) VALUES (?)");
 
-        assert!(sth.bind_param(1, &StaticText("test")) == SQLITE_OK);
+        assert_eq!(sth.bind_param(1, &StaticText("test")), Ok(()));
     }
 
     #[test]
@@ -235,8 +237,8 @@ mod tests {
                 COMMIT;"
         );
         let sth = checked_prepare(&database, "SELECT * FROM test");
-        assert!(sth.step() == SQLITE_ROW);
-        assert!(sth.get_column_names() == vec!("id".to_string(), "v".to_string()));
+        assert_eq!(sth.step(), Ok(SQLITE_ROW));
+        assert_eq!(sth.get_column_names(), vec!("id".to_string(), "v".to_string()));
     }
 
     #[test]
@@ -331,7 +333,7 @@ mod tests {
         let dbh = ptr::mut_null();
         let stmt = ptr::mut_null();
         let cur = Cursor::new(stmt, &dbh);
-        assert_eq!(cur.step(), SQLITE_MISUSE);
+        assert_eq!(cur.step(), Err(SQLITE_MISUSE));
         assert_eq!(cur.get_text(0).as_slice(), "");
     }
 

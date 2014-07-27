@@ -46,9 +46,8 @@ impl Drop for Database {
     /// See http://www.sqlite.org/c3ref/close.html
     fn drop(&mut self) {
         debug!("`Database.drop()`: dbh={:?}", self.dbh);
-        unsafe {
-            sqlite3_close(self.dbh);
-        }
+        let r = unsafe { sqlite3_close_v2(self.dbh) };
+        assert_eq!(r, SQLITE_OK as i32)
     }
 }
 
@@ -63,16 +62,16 @@ impl Database {
                 sqlite3_open(_path, &mut dbh)
             }
         });
-        match r {
-            SQLITE_OK => {
+        match check(r) {
+            Ok(()) => {
                 debug!("`open()`: dbh={:?}", dbh);
                 Ok(Database { dbh: dbh })
-            }
-            _ => {
+            },
+            Err(code) => {
                 unsafe {
-                    sqlite3_close(dbh);
+                    sqlite3_close_v2(dbh);
                 }
-                Err(r)
+                Err(code)
             }
         }
     }
@@ -104,26 +103,25 @@ impl Database {
             };
             (r, new_stmt, tail as uint - _sql as uint)
         });
-        match r {
-            SQLITE_OK => {
-                debug!("`Database.prepare()`: stmt={:?}", stmt);
+        match check(r) {
+            Ok(()) => {
+                debug!("Database.prepare(stmt={:?}, sql={:?})", stmt, sql);
                 Ok((Cursor::new(stmt, &self.dbh), offset))
             }
-            _ => Err(r)
+            Err(code) => Err(code)
         }
     }
 
     /// Executes an SQL statement.
     /// See http://www.sqlite.org/c3ref/exec.html
     pub fn exec(&self, sql: &str) -> SqliteResult<()> {
-        let mut r = SQLITE_ERROR;
-        sql.with_c_str( |_sql| {
+        let r = sql.with_c_str( |_sql| {
             unsafe {
-                r = sqlite3_exec(self.dbh, _sql, ptr::mut_null(), ptr::mut_null(), ptr::mut_null())
+                sqlite3_exec(self.dbh, _sql, ptr::mut_null(), ptr::mut_null(), ptr::mut_null())
             }
         });
 
-        if r == SQLITE_OK { Ok(()) } else { Err(r) }
+        check(r)
     }
 
     /// Returns the number of modified/inserted/deleted rows by the most recent
@@ -145,9 +143,10 @@ impl Database {
 
     /// Sets a busy timeout.
     /// See http://www.sqlite.org/c3ref/busy_timeout.html
-    pub fn set_busy_timeout(&self, ms: int) -> ResultCode {
-        unsafe {
+    pub fn set_busy_timeout(&self, ms: int) {
+        let r = unsafe {
             sqlite3_busy_timeout(self.dbh, ms as c_int)
-        }
+        };
+        assert_eq!(r, SQLITE_OK as c_int);
     }
 }

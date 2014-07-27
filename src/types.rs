@@ -31,11 +31,18 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::num::from_uint;
 
-#[deriving(PartialEq, Eq)]
+#[deriving(PartialEq, Eq, Show)]
 #[repr(C)]
-pub enum ResultCode {
-    SQLITE_OK         =  0,
+pub enum ResultOk {
+    SQLITE_OK = 0,
+    _unused // avoid: unsupported representation for univariant enum [E0083]
+}
+
+#[deriving(PartialEq, Eq, Show, FromPrimitive)]
+#[repr(C)]
+pub enum ResultError {
     SQLITE_ERROR      =  1,
     SQLITE_INTERNAL   =  2,
     SQLITE_PERM       =  3,
@@ -62,44 +69,21 @@ pub enum ResultCode {
     SQLITE_FORMAT     = 24,
     SQLITE_RANGE      = 25,
     SQLITE_NOTADB     = 26,
-    SQLITE_ROW        = 100,
-    SQLITE_DONE       = 101,
 }
 
-impl fmt::Show for ResultCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write(match *self {
-            SQLITE_OK => "Ok".as_bytes(),
-            SQLITE_ERROR => "SQLITE_ERROR".as_bytes(),
-            SQLITE_INTERNAL => "SQLITE_INTERNAL".as_bytes(),
-            SQLITE_PERM => "SQLITE_PERM".as_bytes(),
-            SQLITE_ABORT => "SQLITE_ABORT".as_bytes(),
-            SQLITE_BUSY => "SQLITE_BUSY".as_bytes(),
-            SQLITE_LOCKED => "SQLITE_LOCKED".as_bytes(),
-            SQLITE_NOMEM => "SQLITE_NOMEM".as_bytes(),
-            SQLITE_READONLY => "SQLITE_READONLY".as_bytes(),
-            SQLITE_INTERRUPT => "SQLITE_INTERRUPT".as_bytes(),
-            SQLITE_IOERR => "SQLITE_IOERR".as_bytes(),
-            SQLITE_CORRUPT => "SQLITE_CORRUPT".as_bytes(),
-            SQLITE_NOTFOUND => "SQLITE_NOTFOUND".as_bytes(),
-            SQLITE_FULL => "SQLITE_FULL".as_bytes(),
-            SQLITE_CANTOPEN => "SQLITE_CANTOPEN".as_bytes(),
-            SQLITE_PROTOCOL => "SQLITE_PROTOCOL".as_bytes(),
-            SQLITE_EMPTY => "SQLITE_EMPTY".as_bytes(),
-            SQLITE_SCHEMA => "SQLITE_SCHEMA".as_bytes(),
-            SQLITE_TOOBIG => "SQLITE_TOOBIG".as_bytes(),
-            SQLITE_CONSTRAINT => "SQLITE_CONSTRAINT".as_bytes(),
-            SQLITE_MISMATCH => "SQLITE_MISMATCH".as_bytes(),
-            SQLITE_MISUSE => "SQLITE_MISUSE".as_bytes(),
-            SQLITE_NOLFS => "SQLITE_NOLFS".as_bytes(),
-            SQLITE_AUTH => "SQLITE_AUTH".as_bytes(),
-            SQLITE_FORMAT => "SQLITE_FORMAT".as_bytes(),
-            SQLITE_RANGE => "SQLITE_RANGE".as_bytes(),
-            SQLITE_NOTADB => "SQLITE_NOTADB".as_bytes(),
-            SQLITE_ROW => "SQLITE_ROW".as_bytes(),
-            SQLITE_DONE => "SQLITE_DONE".as_bytes(),
-        })
-    }
+#[deriving(PartialEq, Eq, Show, FromPrimitive)]
+#[repr(C)]
+pub enum ResultLog {
+    SQLITE_NOTICE      = 27,
+    SQLITE_WARNING    = 28,
+}
+
+
+#[deriving(PartialEq, Eq, Show, FromPrimitive)]
+#[repr(C)]
+pub enum ResultStep {
+    SQLITE_ROW        = 100,
+    SQLITE_DONE       = 101,
 }
 
 #[deriving(PartialEq)]
@@ -121,6 +105,12 @@ pub enum ColumnType {
     SQLITE_NULL,
 }
 
-pub type SqliteResult<T> = Result<T, ResultCode>;
+pub type SqliteResult<T> = Result<T, ResultError>;
+
+// TODO: c_int?
+pub fn check(r: i32) -> SqliteResult<()> {
+    if r == SQLITE_OK as i32 { Ok(()) }
+    else { Err(from_uint::<ResultError>(r as uint).unwrap()) }
+}
 
 pub type RowMap = HashMap<String, BindArg>;

@@ -4,45 +4,36 @@ use self::serialize::{Encoder, Encodable};
 
 use cursor::{Cursor};
 use types::{Null, Integer, Integer64, Float64, Text};
-use types::ResultCode;
+use types::{SQLITE_OK, ResultError};
 use types::{SqliteResult, SQLITE_OK, SQLITE_INTERNAL};
-
-// TODO: push this into cursor, database
-// rename ResultCode to ErrorCode and take out SQLITE_OK
-fn res(code: ResultCode) -> SqliteResult<()> {
-    match code {
-        x if x == SQLITE_OK => Ok(()),
-        err @ _ => Err(err)
-    }
-}
 
 fn todo() -> SqliteResult<()> { Err(SQLITE_INTERNAL) }
 
 
-impl<'db> Encoder<ResultCode> for Cursor<'db> {
+impl<'db> Encoder<ResultError> for Cursor<'db> {
     // add column state?
-    fn emit_nil(&mut self) -> SqliteResult<()> { res(self.bind_param(0, &Null)) }
+    fn emit_nil(&mut self) -> SqliteResult<()> { self.bind_param(0, &Null) }
 
-    fn emit_bool(&mut self, v: bool) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
+    fn emit_bool(&mut self, v: bool) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
 
-    fn emit_int(&mut self, v: int) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v))) }
+    fn emit_int(&mut self, v: int) -> SqliteResult<()> { self.bind_param(0, &Integer(v)) }
     // hmm... promote uint to i64 instead of int?
-    fn emit_uint(&mut self, v: uint) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_i8(&mut self, v: i8) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_u8(&mut self, v: u8) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_i16(&mut self, v: i16) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_u16(&mut self, v: u16) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_i32(&mut self, v: i32) -> SqliteResult<()> { res(self.bind_param(0, &Integer(v as int))) }
-    fn emit_u32(&mut self, v: u32) -> SqliteResult<()> { res(self.bind_param(0, &Integer64(v as i64))) }
-    fn emit_i64(&mut self, v: i64) -> SqliteResult<()> { res(self.bind_param(0, &Integer64(v))) }
+    fn emit_uint(&mut self, v: uint) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_i8(&mut self, v: i8) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_u8(&mut self, v: u8) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_i16(&mut self, v: i16) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_u16(&mut self, v: u16) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_i32(&mut self, v: i32) -> SqliteResult<()> { self.bind_param(0, &Integer(v as int)) }
+    fn emit_u32(&mut self, v: u32) -> SqliteResult<()> { self.bind_param(0, &Integer64(v as i64)) }
+    fn emit_i64(&mut self, v: i64) -> SqliteResult<()> { self.bind_param(0, &Integer64(v)) }
     // hmm... u64 as i64
-    fn emit_u64(&mut self, v: u64) -> SqliteResult<()> { res(self.bind_param(0, &Integer64(v as i64))) }
+    fn emit_u64(&mut self, v: u64) -> SqliteResult<()> { self.bind_param(0, &Integer64(v as i64)) }
 
-    fn emit_f32(&mut self, v: f32) -> SqliteResult<()> { res(self.bind_param(0, &Float64(v as f64))) }
-    fn emit_f64(&mut self, v: f64) -> SqliteResult<()> { res(self.bind_param(0, &Float64(v))) }
+    fn emit_f32(&mut self, v: f32) -> SqliteResult<()> { self.bind_param(0, &Float64(v as f64)) }
+    fn emit_f64(&mut self, v: f64) -> SqliteResult<()> { self.bind_param(0, &Float64(v)) }
 
-    fn emit_char(&mut self, v: char) -> SqliteResult<()> { res(self.bind_param(0, &Text(v.to_string()))) }
-    fn emit_str(&mut self, v: &str) -> SqliteResult<()> { res(self.bind_param(0, &Text(v.to_string()))) }
+    fn emit_char(&mut self, v: char) -> SqliteResult<()> { self.bind_param(0, &Text(v.to_string())) }
+    fn emit_str(&mut self, v: &str) -> SqliteResult<()> { self.bind_param(0, &Text(v.to_string())) }
 
     fn emit_enum(&mut self,
                  _name: &str,
@@ -53,7 +44,7 @@ impl<'db> Encoder<ResultCode> for Cursor<'db> {
                          v_name: &str, v_id: uint, len: uint,
                          f: |&mut Cursor<'db>| -> SqliteResult<()>) -> SqliteResult<()> {
         match len {
-            0 => res(self.bind_param(0, &Text(v_name.to_string()))),
+            0 => self.bind_param(0, &Text(v_name.to_string())),
             _ => todo()
         }
     }
@@ -142,7 +133,7 @@ mod query_tests {
             for row in [(1i, "John Doe", "123 w Pine"),
                         (2i, "Jane Doe", "345 e Walnut")].iter() {
                 (*row).encode(&mut tx);
-                tx.step();
+                try!(tx.step());
                 tx.reset();
             }
             Ok(())
@@ -167,17 +158,21 @@ mod api_tests {
                 CREATE TABLE test (id int, name text, address text);
                 INSERT INTO test (id, name, address) VALUES (1, 'John Doe', '123 w Pine');
                 COMMIT;"));
+
             let tx = try!(database.prepare(
                 "INSERT INTO test (id, name, address) VALUES (?, ?, ?)"));
-            tx.bind_params([Integer(2), StaticText("Jane Doe"), StaticText("345 e Walnut")]);
-            tx.step();
+            try!(tx.bind_params([Integer(2), Text("Jane Doe".to_string()), Text("345 e Walnut".to_string())]));
+            assert_eq!(tx.step(), Ok(SQLITE_DONE));
+            assert_eq!(database.get_changes(), 1);
 
-            let q = try!(database.prepare("select * from test"));
-            q.step();
+            let q = try!(database.prepare("select * from test order by id"));
+            assert_eq!(q.step(), Ok(SQLITE_ROW));
+            assert_eq!(q.get_int(0), 1);
             let name = q.get_text(1);
             assert_eq!(name.as_slice(), "John Doe");
 
-            q.step();
+            assert_eq!(q.step(), Ok(SQLITE_ROW));
+            assert_eq!(q.get_int(0), 2);
             let addr = q.get_text(2);
             assert_eq!(addr.as_slice(), "345 e Walnut");
             Ok(())

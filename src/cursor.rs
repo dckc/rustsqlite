@@ -32,6 +32,7 @@
 use ffi::*;
 use libc::{c_int, c_void};
 use std::collections::HashMap;
+use std::num::from_uint;
 use std::str;
 use std::slice;
 use types::*;
@@ -61,32 +62,35 @@ impl<'db> Cursor<'db> {
 
     /// Resets a prepared SQL statement, but does not reset its bindings.
     /// See http://www.sqlite.org/c3ref/reset.html
-    pub fn reset(&self) -> ResultCode {
-        unsafe {
-            sqlite3_reset(self.stmt)
-        }
+    pub fn reset(&self) -> SqliteResult<()> {
+        check(unsafe { sqlite3_reset(self.stmt) })
     }
 
     /// Resets all bindings on a prepared SQL statement.
     /// See http://www.sqlite.org/c3ref/clear_bindings.html
-    pub fn clear_bindings(&self) -> ResultCode {
-        unsafe {
+    pub fn clear_bindings(&self) {
+        let r = unsafe {
             sqlite3_clear_bindings(self.stmt)
-        }
+        };
+        assert_eq!(r, SQLITE_OK as i32)
     }
 
     /// Evaluates a prepared SQL statement one ore more times.
     /// See http://www.sqlite.org/c3ref/step.html
-    pub fn step(&self) -> ResultCode {
-        unsafe {
-            sqlite3_step(self.stmt)
-        }
+    pub fn step(&self) -> Result<ResultStep, ResultError> {
+        let r = unsafe { sqlite3_step(self.stmt) } as uint;
+        let out = match from_uint::<ResultStep>(r) {
+            Some(step) => Ok(step),
+            None => Err(from_uint::<ResultError>(r).unwrap())
+        };
+        debug!("step() -> {:?}", out);
+        out
     }
 
     ///
     pub fn step_row(&self) -> SqliteResult<Option<RowMap>> {
-        let is_row: ResultCode = self.step();
-        if is_row == SQLITE_ROW {
+        match self.step() {
+            Ok(SQLITE_ROW) => {
             let column_cnt = self.get_column_count();
             let mut i = 0;
             let mut sqlrow = HashMap::new();
@@ -107,11 +111,12 @@ impl<'db> Cursor<'db> {
             }
 
             Ok(Some(sqlrow))
-        }
-        else if is_row == SQLITE_DONE {
+        },
+        Ok(SQLITE_DONE) => {
             Ok(None)
-        } else {
-            Err(is_row)
+        }, Err(code) => {
+            Err(code)
+        }
         }
     }
 
@@ -224,24 +229,19 @@ impl<'db> Cursor<'db> {
     }
 
     ///
-    pub fn bind_params(&self, values: &[BindArg]) -> ResultCode {
+    pub fn bind_params(&self, values: &[BindArg]) -> SqliteResult<()> {
         // SQL parameter index (starting from 1).
-        let mut i = 1i;
-        for v in values.iter() {
-            let r = self.bind_param(i, v);
-            if r != SQLITE_OK {
-                return r;
-            }
-            i += 1;
+        for (i, v) in values.iter().enumerate() {
+            try!(self.bind_param(i + 1, v))
         }
-        return SQLITE_OK;
+        Ok(())
     }
 
     ///
     /// See http://www.sqlite.org/c3ref/bind_blob.html
-    pub fn bind_param(&self, i: int, value: &BindArg) -> ResultCode {
+    pub fn bind_param(&self, i: uint, value: &BindArg) -> SqliteResult<()> {
 
-        debug!("`Cursor.bind_param()`: stmt={:?}", self.stmt);
+        debug!("`Cursor.bind_param(stmt={:?}, i={:?}, value={:?})`", self.stmt, i, value);
 
         let r = match *value {
             Text(ref v) => {
@@ -267,6 +267,7 @@ impl<'db> Cursor<'db> {
                 let l = v.len();
                 debug!("  `StaticText`: v={:?}, l={:?}", v, l);
 
+                // oops! "The provided *libc::c_char will be freed immediately upon return."
                 (*v).with_c_str( |_v| {
                     debug!("  _v={:?}", _v);
                     unsafe {
@@ -307,6 +308,7 @@ impl<'db> Cursor<'db> {
 
         };
 
-        return r;
+        debug!("`Cursor.bind_param() -> {:?}`", check(r));
+        check(r)
     }
 }
