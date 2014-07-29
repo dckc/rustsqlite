@@ -248,7 +248,7 @@ impl<'db> Cursor<'db> {
     /// See http://www.sqlite.org/c3ref/bind_blob.html
     pub fn bind_param(&self, i: uint, value: &BindArg) -> SqliteResult<()> {
 
-        debug!("`Cursor.bind_param(stmt={:?}, i={:?}, value={:?})`", self.stmt, i, value);
+        debug!("`Cursor.bind_param(stmt={:?}, i={:?}, value={})`", self.stmt, i, value);
 
         let r = match *value {
             Text(ref v) => {
