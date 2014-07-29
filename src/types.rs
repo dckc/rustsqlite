@@ -86,7 +86,7 @@ pub enum ResultStep {
     SQLITE_DONE       = 101,
 }
 
-#[deriving(PartialEq)]
+#[deriving(Show, PartialEq)]
 pub enum BindArg {
     Text(String),
     StaticText(&'static str),
