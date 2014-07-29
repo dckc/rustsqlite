@@ -105,6 +105,7 @@ pub enum ColumnType {
     SQLITE_NULL,
 }
 
+#[must_use]
 pub type SqliteResult<T> = Result<T, ResultError>;
 
 // TODO: c_int?

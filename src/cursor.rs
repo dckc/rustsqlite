@@ -33,6 +33,7 @@ use ffi::*;
 use libc::{c_int, c_void};
 use std::collections::HashMap;
 use std::num::from_uint;
+use std::ptr;
 use std::str;
 use std::slice;
 use types::*;
@@ -55,6 +56,7 @@ impl<'db> Drop for Cursor<'db> {
 }
 
 impl<'db> Cursor<'db> {
+    #[allow(visible_private_types)]
     pub fn new<'db>(stmt: *mut stmt, _dbh: &'db *mut dbh) -> Cursor<'db> {
         debug!("`Cursor.new()`: stmt={:?}", stmt);
         Cursor { stmt: stmt }
@@ -167,7 +169,12 @@ impl<'db> Cursor<'db> {
     /// See http://www.sqlite.org/c3ref/column_blob.html
     pub fn get_text(&self, i: int) -> String {
         unsafe {
-            return str::raw::from_c_str( sqlite3_column_text(self.stmt, i as c_int) );
+            let txt = sqlite3_column_text(self.stmt, i as c_int);
+            if txt == ptr::null() {
+                "".to_string() // TODO: consider returning Option<String>
+            } else {
+                str::raw::from_c_str(txt)
+            }
         }
     }
 
