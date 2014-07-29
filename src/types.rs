@@ -102,7 +102,7 @@ impl fmt::Show for ResultCode {
     }
 }
 
-#[deriving(PartialEq)]
+#[deriving(Show, PartialEq)]
 pub enum BindArg {
     Text(String),
     StaticText(&'static str),
