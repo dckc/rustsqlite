@@ -29,8 +29,9 @@
 ** POSSIBILITY OF SUCH DAMAGE.
 */
 
+#![allow(non_camel_case_types)]
+
 use std::collections::HashMap;
-use std::fmt;
 use std::num::from_uint;
 
 #[deriving(PartialEq, Eq, Show)]

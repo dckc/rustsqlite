@@ -29,8 +29,9 @@
 ** POSSIBILITY OF SUCH DAMAGE.
 */
 
+#![allow(non_camel_case_types)]
+
 use libc::*;
-use types::*;
 
 pub enum dbh {}
 pub enum stmt {}

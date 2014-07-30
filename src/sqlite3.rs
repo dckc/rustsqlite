@@ -47,7 +47,6 @@ pub mod database;
 pub mod query;
 mod ffi;
 
-#[allow(non_camel_case_types)]
 pub mod types;
 
 
@@ -350,7 +349,7 @@ mod tests {
     fn get_text_on_bogus_col() {
         let db = checked_open();
         let c = checked_prepare(&db, "select 1 + 1");
-        c.step();
+        c.step().unwrap();
         assert_eq!(c.get_text(1).as_slice(), "");
     }
 

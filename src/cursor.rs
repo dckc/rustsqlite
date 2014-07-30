@@ -29,13 +29,14 @@
 ** POSSIBILITY OF SUCH DAMAGE.
 */
 
-use ffi::*;
 use libc::{c_int, c_void};
 use std::collections::HashMap;
 use std::num::from_uint;
 use std::ptr;
-use std::str;
+use std::string;
 use std::slice;
+
+use ffi::*;
 use types::*;
 
 /// The database cursor.
@@ -173,7 +174,7 @@ impl<'db> Cursor<'db> {
             if txt == ptr::null() {
                 "".to_string() // TODO: consider returning Option<String>
             } else {
-                str::raw::from_c_str(txt)
+                string::raw::from_buf(txt as *const u8)
             }
         }
     }
@@ -201,7 +202,8 @@ impl<'db> Cursor<'db> {
     /// See http://www.sqlite.org/c3ref/column_name.html
     pub fn get_column_name(&self, i: int) -> String {
         unsafe {
-            return str::raw::from_c_str( sqlite3_column_name(self.stmt, i as c_int) );
+            let name = sqlite3_column_name(self.stmt, i as c_int);
+            string::raw::from_buf(name as *const u8)
         }
     }
 
